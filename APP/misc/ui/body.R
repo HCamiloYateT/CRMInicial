@@ -3,10 +3,13 @@ body <- bs4DashBody(
   use_waiter(),
   useShinyjs(),
   bs4TabItems(
-    bs4TabItem(tabName = "ResumenGeneral"),
-    bs4TabItem(tabName = "OfertasTabla"),
-    bs4TabItem(tabName = "FacturacionTabla"),
-    bs4TabItem(tabName = "EntradasTabla"),
-    bs4TabItem(tabName = "ComunicacionesTabla")
+    ##### Resumen ----
+    bs4TabItem(tabName = "tab_resumen", mod_resumen_ui("resumen")),
+    ##### Ofertas ----
+    bs4TabItem(tabName = "tab_ofertas", mod_ofertas_ui("ofertas")),
+    ##### Facturación ----
+    bs4TabItem(tabName = "tab_facturacion", mod_facturacion_ui("facturacion")),
+    ##### Entradas ----
+    bs4TabItem(tabName = "tab_entradas", mod_entradas_ui("entradas"))
     )
   )

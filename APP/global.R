@@ -26,7 +26,7 @@ for (.cat in c("LC_TIME", "LC_MONETARY", "LC_MESSAGES")) {
     }
   }
 }
-rm(.cat, .actual, .loc, .res)
+rm(.cat, .actual)
 
 # Verificacion de locales activos al arranque
 if (verbose) {
@@ -71,15 +71,16 @@ library("racafeBD")
 library("racafeDrive")
 library("racafeGraph")
 library("racafeShiny")
-library("racafeForecast")
+library("racafeModulos")
 racafeCore::Loadpkg(c("shiny", "bs4Dash", "shinyBS", "shinyjs",
                       "shinyWidgets", "tidyverse", "gt",  "scales", "plotly",  "rlang",
-                      "waiter", "glue", "lubridate", "stringr", "purrr"))
+                      "waiter", "glue", "lubridate", "stringr", "purrr", "DT", "leaflet", 
+                      "dygraphs"))
 
 # Impresiones ----
-tit_app <- "Título de la APP"
+tit_app <- "CRM Cliente Inicial"
 # valores: prototipo, pruebas, staging, produccion, demo, mantenimiento, ninguno
-badge_estado <- "prototipo"
+badge_estado <- "ninguno"
 
 # Datos ----
 # Carga datos precargados desde RData
