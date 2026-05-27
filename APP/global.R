@@ -73,9 +73,10 @@ library("racafeGraph")
 library("racafeShiny")
 library("racafeModulos")
 racafeCore::Loadpkg(c("shiny", "bs4Dash", "shinyBS", "shinyjs",
-                      "shinyWidgets", "tidyverse", "gt",  "scales", "plotly",  "rlang",
-                      "waiter", "glue", "lubridate", "stringr", "purrr", "DT", "leaflet", 
-                      "dygraphs"))
+                      "shinyWidgets", "tidyverse", "gt", "scales", "plotly", "rlang",
+                      "waiter", "glue", "lubridate", "stringr", "purrr", "DT", "leaflet",
+                      "dygraphs", "prophet", "RColorBrewer", "leaflet.extras", "xts"))
+
 
 # Impresiones ----
 tit_app <- "CRM Cliente Inicial"

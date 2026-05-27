@@ -297,7 +297,7 @@ ResultadosRFM <- rfm_result$rfm %>%
       frequency_score == 5 ~ runif(n(), 800, 1000)))
 
 # 6. Exportacion ----
-gdata::keep(Ofertas, Facturas, Entradas, Liquidacion, sure = TRUE)
+gdata::keep(Ofertas, Facturas, Entradas, Liquidacion, ResultadosRFM, sure = TRUE)
 save.image("APP/data/data.RData")
 
 # # 7. Publicacion en Posit Connect ----

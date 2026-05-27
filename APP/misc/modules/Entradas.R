@@ -194,7 +194,7 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
     
     CajaModal(
       id    = "kpi_kls_brutos",
-      valor = reactive(comma(sum(entradas_r()$KilosNetos, na.rm = TRUE), accuracy = 1)),
+      valor = reactive(comma(sum(entradas_r()$RegKlsBru, na.rm = TRUE), accuracy = 1)),
       texto = "Kilos Brutos",
       icono = "weight-hanging"
     )
@@ -220,9 +220,9 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
     
     ## Serie mensual de kilos en entradas ----
     output$SerieResumenEntradas <- renderPlotly({
-      aux1 <- facturas_r() %>%
-        group_by(Fecha = floor_date(FCoFch, unit = "month")) %>%
-        summarise(Kilos = sum(kilos), .groups = "drop")
+      aux1 <- entradas_r() %>%
+        group_by(Fecha = floor_date(as.Date(RegFchEnt), unit = "month")) %>%
+        summarise(Kilos = sum(KilosNetos, na.rm = TRUE), .groups = "drop")
       
       plot_ly(
         data = aux1, x = ~Fecha, y = ~Kilos,
@@ -236,7 +236,7 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
         )
       ) %>%
         layout(
-          title  = list(text = "Kilos en Entradas",
+          title  = list(text = "Kilos en Entradas (Entradas)",
                         font = list(family = "Arial, sans-serif", size = 18)),
           xaxis  = list(title = "Fecha", gridcolor = "#CCD1D1"),
           yaxis  = list(tickformat = "s", title = ""),
@@ -250,8 +250,8 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
       aux1 <- entradas_r() %>%
         group_by(PerRazSoc, NomDepPro, MunPro, LatPro, LngPro) %>%
         summarise(
-          Lat            = max(Lat),
-          Lng            = max(Lng),
+          Lat            = max(lat, na.rm = TRUE),
+          Lng            = max(lng, na.rm = TRUE),
           Entradas       = n(),
           Kilos          = sum(KilosNetos),
           FactorPromedio = 96.8,
@@ -269,7 +269,7 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
       })
       
       leaflet(options = leafletOptions(minZoom = 5, maxZoom = 10, zoomControl = FALSE)) %>%
-        setView(lat = max(aux1$Lat), lng = max(aux1$Lng), zoom = 7) %>%
+        setView(lat = mean(aux1$Lat, na.rm = TRUE), lng = mean(aux1$Lng, na.rm = TRUE), zoom = 7) %>%
         addProviderTiles(providers$Esri.WorldGrayCanvas) %>%
         addMarkers(data = aux1, lng = ~Lng, lat = ~Lat, label = ~PerRazSoc) %>%
         addHeatmap(
@@ -351,8 +351,7 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
       aux1 <- df %>% transmute(Var = .data[[var_y]])
       plot_ly(
         data = aux1, y = ~Var, type = "box",
-        box = list(visible = TRUE), meanline = list(visible = TRUE),
-        points = FALSE, name = "_"
+        boxmean = TRUE, boxpoints = FALSE, name = "_"
       ) %>%
         layout(
           yaxis = list(tickformat = formato_y, rangemode = "tozero", title = ""),
@@ -424,8 +423,7 @@ mod_entradas_server <- function(id, entradas_r, facturas_r) {
       
       plot_ly(
         data = aux1, x = ~Resultado, y = ~Var, type = "box",
-        split = ~Resultado, box = list(visible = TRUE),
-        meanline = list(visible = TRUE), points = FALSE
+        split = ~Resultado, boxmean = TRUE, boxpoints = FALSE
       ) %>%
         layout(
           yaxis = list(tickformat = ".0%", rangemode = "tozero", title = ""),

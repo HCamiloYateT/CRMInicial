@@ -30,7 +30,7 @@ mod_facturacion_ui <- function(id) {
         bs4Card(
           title       = "Distribución por Sucursal",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           plotlyOutput(ns("DistribuicionSucursal"), height = "280px")
@@ -42,7 +42,7 @@ mod_facturacion_ui <- function(id) {
         bs4Card(
           title       = "Distribución por Tipo de Negocio",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           plotlyOutput(ns("DistribuicionNegocio"), height = "280px")
@@ -58,7 +58,7 @@ mod_facturacion_ui <- function(id) {
         bs4Card(
           title       = "Serie de Kilos + Proyección",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           dygraphOutput(ns("SerieFacturasKilos"), height = "280px")
@@ -70,7 +70,7 @@ mod_facturacion_ui <- function(id) {
         bs4Card(
           title       = "Serie de Valor + Proyección",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           dygraphOutput(ns("SerieFacturasValor"), height = "280px")
@@ -198,7 +198,7 @@ mod_facturacion_server <- function(id, facturas_r, rfm_r) {
       Form    <- FormatoJS(formato)
       
       aux1 <- df %>%
-        group_by(Fecha = floor_date(FCoFch, unit = "month")) %>%
+        group_by(Fecha = floor_date(as.Date(FCoFch), unit = "month")) %>%
         summarise(
           Kilos = sum(kilos),
           Valor = sum(ValorFacturado),
@@ -206,19 +206,64 @@ mod_facturacion_server <- function(id, facturas_r, rfm_r) {
         ) %>%
         mutate(Var = !!sym(varplot))
       
-      m_prophet <- aux1 %>%
-        select(ds = Fecha, y = Var) %>%
-        prophet(
-          interval.width     = 0.70,
-          weekly.seasonality = TRUE,
-          daily.seasonality  = TRUE
+      # Requiere mínimo 6 observaciones para ajustar el modelo
+      if (nrow(aux1) < 6) {
+        ts_simple <- xts::xts(matrix(aux1$Var, ncol = 1), order.by = aux1$Fecha)
+        colnames(ts_simple) <- varplot
+        return(dygraph(ts_simple) %>%
+                 dySeries(varplot, color = "#212F3D", strokeWidth = 2) %>%
+                 dyAxis("y", valueFormatter = Form, axisLabelFormatter = Form) %>%
+                 dyOptions(drawPoints = TRUE, pointSize = 2, gridLineColor = "#CCD1D1") %>%
+                 dyLegend(show = "auto"))
+      }
+      
+      resultado <- tryCatch({
+        m_prophet <- aux1 %>%
+          select(ds = Fecha, y = Var) %>%
+          prophet(interval.width = 0.80, yearly.seasonality = TRUE,
+                  weekly.seasonality = FALSE, daily.seasonality = FALSE)
+        
+        future   <- make_future_dataframe(m_prophet, periods = 12,
+                                          freq = "month", include_history = TRUE)
+        forecast <- predict(m_prophet, future)
+        
+        # Construir dygraph manualmente: evita incompatibilidades de dyplot.prophet
+        real_ts <- xts::xts(aux1$Var, order.by = aux1$Fecha)
+        pred_ts <- xts::xts(
+          forecast %>%
+            select(yhat_lower, yhat, yhat_upper) %>%
+            as.matrix(),
+          order.by = as.Date(forecast$ds)
         )
-      
-      future   <- make_future_dataframe(m_prophet, periods = 12,
-                                        freq = "month", include_history = TRUE)
-      forecast <- predict(m_prophet, future)
-      
-      dyplot.prophet(m_prophet, forecast) %>%
+        colnames(real_ts) <- "Real"
+        colnames(pred_ts) <- c("Inferior", "Proyectado", "Superior")
+        combined <- merge(real_ts, pred_ts, join = "outer")
+        
+        dygraph(combined) %>%
+          dySeries("Real",                                     color = "#212F3D",
+                   strokeWidth = 2, drawPoints = TRUE, pointSize = 3) %>%
+          dySeries(c("Inferior", "Proyectado", "Superior"),   color = "#1F618D",
+                   strokeWidth = 1) %>%
+          dyAxis("x", drawGrid = FALSE,
+                 valueFormatter     = "function(d){return moment(d).format('MMM-YY');}",
+                 axisLabelFormatter = "function(d){return moment(d).format('MMM-YY');}") %>%
+          dyAxis("y", label = varplot, axisLabelWidth = 90,
+                 valueFormatter = Form, axisLabelFormatter = Form) %>%
+          dyOptions(digitsAfterDecimal = 0, gridLineColor = "#CCD1D1",
+                    strokeWidth = 2) %>%
+          dyLegend(show = "auto")
+        
+      }, error = function(e) {
+        message("[Facturacion] Prophet falló para ", varplot, ": ", e$message)
+        ts_simple <- xts::xts(matrix(aux1$Var, ncol = 1), order.by = aux1$Fecha)
+        colnames(ts_simple) <- varplot
+        dygraph(ts_simple) %>%
+          dySeries(varplot, color = "#212F3D", strokeWidth = 2) %>%
+          dyAxis("y", valueFormatter = Form, axisLabelFormatter = Form) %>%
+          dyOptions(drawPoints = TRUE, pointSize = 2, gridLineColor = "#CCD1D1") %>%
+          dyLegend(show = "auto")
+      })
+      resultado %>%
         dyAxis(
           "x", drawGrid = FALSE,
           valueFormatter    = 'function(d){return moment(d).format("MMM-YY");}',

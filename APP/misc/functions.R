@@ -1,6 +1,6 @@
 construir_cosechas <- function(df, varplot = "Kilos", paleta = paleta) {
   
-  aux0 <- df %>% filter(OfeEst == "CUMPLIDA")
+  aux0 <- df %>% filter(OfeEst == "Cumplida")
   
   aux1 <- aux0 %>%
     filter(!is.na(Fecha)) %>%
@@ -15,13 +15,10 @@ construir_cosechas <- function(df, varplot = "Kilos", paleta = paleta) {
     select(SucCod, OfeNro, FecOferta, FechaCumplimiento,
            Fecha, KilosOriginal, kilos, AntGirado, DescuentoAnt, TOB) %>%
     mutate(
-      Vintage = ifelse(
-        year(FechaCumplimiento) < 2023,
-        as.character(year(FechaCumplimiento)),
-        paste0(year(FechaCumplimiento), " Q", quarter(FechaCumplimiento))
-      )
+      # Granularidad dinámica: mes (año vigente), trimestre (2 años ant.), año (resto)
+      Vintage = .vintage_label(FechaCumplimiento)
     ) %>%
-    filter(Vintage != "1973") %>%
+    filter(!Vintage %in% c("1973", "1753")) %>%
     group_by(SucCod, OfeNro) %>%
     mutate(
       KilosAcum = cumsum(kilos),
@@ -58,9 +55,13 @@ construir_cosechas <- function(df, varplot = "Kilos", paleta = paleta) {
     mutate(Var = if_else(TOB == 0, 1, Var)) %>%
     fill(Var, .direction = "up")
   
-  ncols <- length(unique(aux2$Vintage))
-  cols  <- paleta[seq_len(min(ncols, length(paleta)))]
-  names(cols) <- unique(aux2$Vintage)
+  # Ordenar vintages cronológicamente como factor antes del plot
+  # ungroup obligatorio: factor con niveles globales requiere ver todos los grupos a la vez
+  aux2 <- aux2 %>% ungroup() %>% mutate(Vintage = .vintage_factor(Vintage))
+  ncols   <- nlevels(aux2$Vintage)
+  # rep_len cicla la paleta si hay más vintages que colores disponibles
+  cols    <- rep_len(paleta, ncols)
+  names(cols) <- levels(aux2$Vintage)
   
   plot_ly(
     data        = aux2, x = ~TOB, y = ~Var,

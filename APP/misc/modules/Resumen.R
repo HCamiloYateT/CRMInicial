@@ -11,7 +11,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Información de Contacto",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           tableOutput(ns("TablaContacto"))
@@ -23,7 +23,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Perfil RFM",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           plotlyOutput(ns("RadarResumen"), height = "280px")
@@ -35,7 +35,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Resumen de Ofertas",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           tableOutput(ns("TablaResumenOfertas"))
@@ -59,7 +59,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Evolución de Ofertas",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("SerieResumenOfertas"), height = "240px")
@@ -71,7 +71,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Evolución de Facturación",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("SerieResumenFacturas"), height = "240px")
@@ -86,7 +86,7 @@ mod_resumen_ui <- function(id) {
         bs4Card(
           title       = "Cosechas de Ofertas (Kilos)",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("ResumenCosechasKilos"), height = "300px")
@@ -122,11 +122,12 @@ mod_resumen_server <- function(id, ofertas_r, rfm_r, liquidacion_r,
       req(nrow(ofertas_r()) > 0)
       
       scores_cliente <- rfm_r() %>%
+        slice(1) %>%
         select(ScoreCumplimiento:ScoreRecompra)
       
       scores_general <- ResultadosRFM %>%
         select(ScoreCumplimiento:ScoreRecompra) %>%
-        summarise(across(everything(), mean, na.rm = TRUE))
+        summarise(across(everything(), \(x) mean(x, na.rm = TRUE)))
       
       dimensiones <- c(
         "Cumplimiento", "Frecuencia", "Recencia",
@@ -174,7 +175,7 @@ mod_resumen_server <- function(id, ofertas_r, rfm_r, liquidacion_r,
       aux0 <- ofertas_r()
       bind_cols(
         `Ofertas Pendientes` = aux0 %>%
-          filter(OfeEst == "PENDIENTE") %>%
+          filter(OfeEst == "Pendiente") %>%
           summarise(paste(OfeNro, collapse = " | ")) %>%
           as.character(),
         `Última Oferta` = aux0 %>%
@@ -190,11 +191,11 @@ mod_resumen_server <- function(id, ofertas_r, rfm_r, liquidacion_r,
           arrange(desc(OfeFch)) %>%
           slice(1) %>% pull(AnticiposGirados) %>% dollar() %>% as.character(),
         `Última Oferta Cumplida` = aux0 %>%
-          filter(OfeEst == "CUMPLIDA") %>%
+          filter(OfeEst == "Cumplida") %>%
           arrange(desc(OfeFch)) %>%
           slice(1) %>% select(OfeNro) %>% as.character(),
         `Fecha Última Cumplida` = aux0 %>%
-          filter(OfeEst == "CUMPLIDA") %>%
+          filter(OfeEst == "Cumplida") %>%
           arrange(desc(OfeFch)) %>%
           slice(1) %>% select(OfeFch) %>% format("%d %b %y") %>% as.character()
       ) %>%

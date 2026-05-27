@@ -148,7 +148,7 @@ mod_ofertas_ui <- function(id) {
 
 # Server ----
 
-mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
+mod_ofertas_server <- function(id, ofertas_r, liquidacion_r, rfm_r) {
   moduleServer(id, function(input, output, session) {
     
     ## KPIs con CajaModal ----
@@ -200,12 +200,32 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
     
     ## Gauge de score de cumplimiento ----
     output$ScoreCumplimiento <- renderPlotly({
-      set.seed(31415)
-      aux <- rfm_val <- round(0) # placeholder — pasa rfm_r si se necesita
-      # Nota: si se requiere el score RFM en este módulo, recibirlo como parámetro
-      val <- 600
-      ImprimirGauge(val = val, limites = c(400, 700), rango = c(0, 1000),
-                    Directo = FALSE, formato = "numero")
+      val <- if (nrow(rfm_r()) > 0) as.numeric(rfm_r()$ScoreCumplimiento[1]) else 0
+      
+      # Usar ImprimirGauge de racafeGraph si está disponible; si no, gauge nativo
+      if (exists("ImprimirGauge", mode = "function")) {
+        ImprimirGauge(val = val, limites = c(400, 700), rango = c(0, 1000),
+                      Directo = FALSE, formato = "numero")
+      } else {
+        color_barra <- dplyr::case_when(val < 400 ~ "#C0392B", val < 700 ~ "#D4AC0D",
+                                        TRUE ~ "#1E8449")
+        plot_ly(
+          type = "indicator", mode = "gauge+number", value = val,
+          number = list(font = list(size = 24, color = color_barra)),
+          gauge  = list(
+            axis  = list(range = list(0, 1000), tickwidth = 1),
+            bar   = list(color = color_barra),
+            steps = list(list(range = c(0,   400), color = "#FADBD8"),
+                         list(range = c(400, 700), color = "#FDEBD0"),
+                         list(range = c(700, 1000), color = "#D5F5E3")),
+            threshold = list(line = list(color = "black", width = 3),
+                             thickness = 0.75, value = val)
+          )
+        ) %>%
+          layout(margin = list(l = 20, r = 20, t = 40, b = 20),
+                 paper_bgcolor = "rgba(0,0,0,0)") %>%
+          config(displayModeBar = FALSE)
+      }
     })
     
     ## Sankey helper: construye nodos y links para un Varplot dado ----
@@ -327,18 +347,15 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
     ## Tabla resumen de cosechas por vintage ----
     output$ResumenCosechas <- renderTable({
       ofertas_r() %>%
-        filter(OfeEst == "CUMPLIDA") %>%
+        filter(OfeEst == "Cumplida") %>%
         mutate(
           FechaCumplimiento = if_else(OfeFut == 2, OfeFutfch, OfeFch),
           FechaCumplimiento = if_else(
             FechaCumplimiento == as.Date("1753-01-01"), OfeFch, FechaCumplimiento
           ),
-          Vintage = ifelse(
-            year(FechaCumplimiento) < 2023,
-            as.character(year(FechaCumplimiento)),
-            paste0(year(FechaCumplimiento), " Q", quarter(FechaCumplimiento))
-          )
+          Vintage = .vintage_label(FechaCumplimiento)
         ) %>%
+        arrange(.vintage_orden(Vintage)) %>%
         group_by(Cosecha = Vintage) %>%
         summarise(
           Ofertas   = comma(n_distinct(OfeNro), accuracy = 1),
@@ -367,13 +384,9 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
           TOB = pmax(0, as.numeric(difftime(
             as.Date(Fecha), as.Date(FechaCumplimiento), units = "days"
           ))),
-          Vintage = ifelse(
-            year(FechaCumplimiento) < 2023,
-            as.character(year(FechaCumplimiento)),
-            paste0(year(FechaCumplimiento), " Q", quarter(FechaCumplimiento))
-          )
+          Vintage = .vintage_label(FechaCumplimiento)
         ) %>%
-        filter(Vintage != "1973") %>%
+        filter(!Vintage %in% c("1973", "1753")) %>%
         group_by(SucCod, OfeNro) %>%
         mutate(KilosAcum = cumsum(kilos)) %>%
         ungroup()
@@ -401,7 +414,7 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
     
     ## Barras de altura de mora (total) ----
     output$BarrasAlturas <- renderPlotly({
-      aux2 <- datos_alturas(liquidacion_r() %>% filter(OfeEst == "CUMPLIDA"), "Kilos")
+      aux2 <- datos_alturas(liquidacion_r() %>% filter(OfeEst == "Cumplida"), "Kilos")
       
       resumen <- aux2 %>%
         mutate(TotOfertas = n(), TotKilos = sum(KilosOriginal),
@@ -451,7 +464,7 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
     
     ## Barras de altura por cosecha: helper reutilizable ----
     render_alturas_vintage <- function(df_liq, varplot) {
-      aux2 <- datos_alturas(df_liq %>% filter(OfeEst == "CUMPLIDA"), varplot)
+      aux2 <- datos_alturas(df_liq %>% filter(OfeEst == "Cumplida"), varplot)
       
       resumen <- aux2 %>%
         group_by(Vintage) %>%
@@ -476,6 +489,8 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
                    "De 61 a 90 días", "Más de 90 días"),
         ordered = TRUE
       )
+      # Ordenar vintages cronológicamente para eje X del bar chart
+      resumen$Vintage <- .vintage_factor(resumen$Vintage)
       
       col <- rev(RColorBrewer::brewer.pal(11, "RdYlGn"))
       
@@ -488,7 +503,7 @@ mod_ofertas_server <- function(id, ofertas_r, liquidacion_r) {
           "<br>Kilos: ", comma(resumen$Kilos),
           " <b>(", percent(resumen$PctKilos, accuracy = 0.1), ")</b>",
           "<br>Anticipos: ", dollar(resumen$Anticipos),
-          " <b>(", percent(sierror_0(resumen$PctAnticipos), accuracy = 0.1), ")</b>"
+          " <b>(", percent(SiError_0(resumen$PctAnticipos), accuracy = 0.1), ")</b>"
         )
       ) %>%
         layout(
