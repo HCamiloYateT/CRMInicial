@@ -1,7 +1,7 @@
 function(input, output, session) {
   
   # Identidad del usuario ----
-  # En Posit Connect usa session$user; en local cae al usuario por defecto
+  # En Posit Connect usa session$user / session$group; en local cae a valores por defecto
   usuario <- reactive({
     if (is.null(session$user)) "HCYATE" else str_to_upper(session$user)
   })
@@ -9,29 +9,50 @@ function(input, output, session) {
     if (is.null(session$group)) "ANALÍTICA" else str_to_upper(session$group)
   })
   
-  # Credenciales y perfil de acceso ----
-  # credentials: siempre autenticado (sin shinyauthr); compatible con la firma esperada
-  # user_info:   busca la trilladora asignada en tabla_usuarios (parametros.R)
-  # En producción con SSO: reemplazar ambos reactivos por shinyauthr::loginServer()
-  credentials <- reactive({ list(user_auth = TRUE) })
-  
-  user_info <- reactive({
-    usr  <- usuario()
-    fila <- tabla_usuarios %>% filter(toupper(usuario) == usr)
-    if (nrow(fila) == 0) list(Trilladora = "TODAS") else as.list(fila[1, ])
+  # Sucursal activa según grupo de Posit Connect ----
+  # Regla: si el grupo empieza con "TRILLADORA" (después de normalizar tildes),
+  # se resuelve el nombre en el catálogo sucs; en cualquier otro grupo → todas.
+  sucursal_usuario <- reactive({
+    # Normalizar tildes para comparar con sucs (ya pasó por LimpiarNombres)
+    grp <- toupper(iconv(grupo(), to = "ASCII//TRANSLIT", sub = ""))
+    
+    if (!stringr::str_starts(grp, "TRILLADORA")) {
+      return("TODAS")
+    }
+    
+    # Extraer sufijo: "TRILLADORA ARENALES" → "ARENALES"
+    sufijo <- stringr::str_remove(grp, "^TRILLADORA\\s+")
+    
+    # Buscar en catálogo: comparación en mayúsculas (sucs$Sucursal ya sin tildes)
+    match_suc <- sucs %>%
+      dplyr::filter(
+        toupper(as.character(Sucursal)) == sufijo |
+          as.character(Sucursal) == paste0("Trilladora ", stringr::str_to_title(sufijo))
+      )
+    
+    if (nrow(match_suc) == 0) "TODAS" else as.character(match_suc$Sucursal[1])
   })
-  
   # Filtro por trilladora según perfil del usuario ----
   # Encapsula la lógica de acceso: "TODAS" devuelve el data frame completo
   filtrar_por_trilladora <- function(df, campo_sucursal = "Sucursal") {
     reactive({
-      req(user_info()$Trilladora)
-      if (user_info()$Trilladora == "TODAS") {
+      waiter_show(html = preloader_actualizar$html, color = preloader_actualizar$color)
+      on.exit(waiter_hide())
+      if (sucursal_usuario() == "TODAS") {
         df
       } else {
-        df %>% filter(.data[[campo_sucursal]] == user_info()$Trilladora)
+        df %>% filter(.data[[campo_sucursal]] == sucursal_usuario())
       }
     })
+  }
+  filtrar_por_trilladora <- function(df, campo_sucursal = "Sucursal") {
+    function(){
+      if (sucursal_usuario() == "TODAS") {
+        df
+      } else {
+        df %>% filter(.data[[campo_sucursal]] == sucursal_usuario())
+      }
+    }
   }
   
   # Datos filtrados por trilladora ----
@@ -39,14 +60,14 @@ function(input, output, session) {
   ofertas_u     <- filtrar_por_trilladora(Ofertas)
   facturas_u    <- filtrar_por_trilladora(Facturas)
   entradas_u    <- filtrar_por_trilladora(Entradas)
-  
   rfm_u <- reactive({
-    req(user_info()$Trilladora)
-    if (user_info()$Trilladora == "TODAS") {
+    waiter_show(html = preloader_actualizar$html, color = preloader_actualizar$color)
+    on.exit(waiter_hide())
+    if (sucursal_usuario() == "TODAS") {
       ResultadosRFM
     } else {
       ResultadosRFM %>%
-        filter(grepl(user_info()$Trilladora, Sucursales, ignore.case = TRUE))
+        filter(grepl(sucursal_usuario(), Sucursales, ignore.case = TRUE))
     }
   })
   
@@ -54,13 +75,11 @@ function(input, output, session) {
   
   ## Lista de clientes disponibles según filtro de trilladora
   clientes_disponibles <- reactive({
-    req(credentials()$user_auth)
     sort(unique(na.omit(ofertas_u()$PerRazSoc)))
   })
   
-  ## Poblar el selectizeInput del sidebar vía server-side (evita serializar lista completa al browser)
+  ## Poblar el selectizeInput del sidebar vía server-side (evita serializar lista completa)
   observe({
-    req(credentials()$user_auth, length(clientes_disponibles()) > 0)
     updateSelectizeInput(
       session,
       inputId  = "ClienteInicial",
@@ -70,39 +89,57 @@ function(input, output, session) {
     )
   })
   
-  # Datos filtrados por cliente seleccionado ----
+  # Cliente activo — controlado por el botón Aplicar ----
+  # La reactividad de los módulos solo fluye cuando el usuario confirma la selección.
+  # En la carga inicial se aplica automáticamente el primer cliente disponible.
+  cliente_activo <- reactiveVal(NULL)
+  
+  ## Carga inicial: aplicar primer cliente sin necesidad de presionar el botón
+  observeEvent(clientes_disponibles(), {
+    req(length(clientes_disponibles()) > 0)
+    if (is.null(cliente_activo())) cliente_activo(clientes_disponibles()[1])
+  }, once = TRUE, ignoreNULL = TRUE)
+  
+  ## Botón Aplicar: confirmar el proveedor seleccionado en el selectize
+  observeEvent(input$BTN_Aplicar, {
+    req(input$ClienteInicial)
+    cliente_activo(input$ClienteInicial)
+  })
+  
+  # Datos filtrados por cliente activo ----
+  # Todos los módulos consumen estas reactivas; se recalculan SOLO al cambiar cliente_activo()
   
   liquidacion_f <- reactive({
-    req(input$ClienteInicial)
-    liquidacion_u() %>% filter(PerRazSoc == input$ClienteInicial)
+    req(cliente_activo())
+    liquidacion_u() %>% filter(PerRazSoc == cliente_activo())
   })
   
   ofertas_f <- reactive({
-    req(input$ClienteInicial)
-    ofertas_u() %>% filter(PerRazSoc == input$ClienteInicial)
+    req(cliente_activo())
+    ofertas_u() %>% filter(PerRazSoc == cliente_activo())
   })
   
   rfm_f <- reactive({
-    req(input$ClienteInicial)
-    rfm_u() %>% filter(customer_id == input$ClienteInicial)
+    req(cliente_activo())
+    rfm_u() %>% filter(customer_id == cliente_activo())
   })
   
   facturas_f <- reactive({
-    req(input$ClienteInicial)
-    facturas_u() %>% filter(PerRazSoc == input$ClienteInicial)
+    req(cliente_activo())
+    facturas_u() %>% filter(PerRazSoc == cliente_activo())
   })
   
   entradas_f <- reactive({
-    req(input$ClienteInicial)
-    entradas_u() %>% filter(PerRazSoc == input$ClienteInicial)
+    req(cliente_activo())
+    entradas_u() %>% filter(PerRazSoc == cliente_activo())
   })
   
   # Alerta de cliente bloqueado ----
   
   output$ui_bloqueado <- renderUI({
-    req(input$ClienteInicial)
+    req(cliente_activo())
     ids_cliente <- Facturas %>%
-      filter(PerRazSoc == input$ClienteInicial) %>%
+      filter(PerRazSoc == cliente_activo()) %>%
       pull(IdClienteInicial) %>%
       unique()
     
@@ -130,32 +167,46 @@ function(input, output, session) {
   
   ## Botón actualizar: mostrar animación y recargar la sesión
   observeEvent(input$BTN_Actualizar, {
-    waiter_show(
-      html  = preloader_actualizar$html,
-      color = preloader_actualizar$color
-    )
+    waiter_show(html = preloader_actualizar$html, color = preloader_actualizar$color)
     session$reload()
   })
   
-  ## Waiter al cambiar de cliente: mostrar mientras reactivos recalculan
-  observeEvent(input$ClienteInicial, {
-    waiter_show(
-      html  = preloader_calculando$html,
-      color = preloader_calculando$color
-    )
-  }, ignoreInit = TRUE)
-  
-  ## Ocultar waiter cuando el primer dato filtrado esté listo
+  ## Waiter al aplicar cliente (botón o carga inicial): mostrar mientras recalculan módulos
   observe({
-    req(input$ClienteInicial, !is.null(ofertas_f()))
+    req(cliente_activo())
+    waiter_show(html = preloader_calculando$html, color = preloader_calculando$color)
+  }) %>% bindEvent(cliente_activo(), ignoreNULL = TRUE, ignoreInit = FALSE)
+  
+  ## Ocultar waiter cuando el primer dato filtrado esté disponible
+  observe({
+    req(cliente_activo(), !is.null(ofertas_f()))
     waiter_hide()
   })
   
   # Outputs de header ----
+  
+  ## Nombre del usuario autenticado
   output$user <- renderUI({
     FormatearTexto(
       HTML(paste(usuario())),
       negrita = TRUE, tamano_pct = 0.75, alineacion = "center", color = "#999"
+    )
+  })
+  
+  ## Sucursal activa: badge con el nombre resuelto desde el grupo del usuario
+  output$sucursal_label <- renderUI({
+    suc <- sucursal_usuario()
+    # Color del badge: rojo corporativo para trilladora específica, gris para "Todas"
+    badge_color <- if (suc == "TODAS") "#aaa" else "#c0392b"
+    tags$span(
+      style = paste0(
+        "display:inline-flex;align-items:center;gap:5px;",
+        "font-size:0.72rem;font-weight:600;",
+        "background:", badge_color, ";color:#fff;",
+        "border-radius:10px;padding:2px 9px;white-space:nowrap;"
+      ),
+      icon("building", style = "font-size:0.65rem;"),
+      suc
     )
   })
   

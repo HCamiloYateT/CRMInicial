@@ -24,7 +24,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Score de Cumplimiento",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           plotlyOutput(ns("ScoreCumplimiento"), height = "200px")
@@ -36,7 +36,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Distribución por Sucursal y Estado (Kilos)",
           width       = 12,
-          status      = "primary",
+          status      = "white",
           solidHeader = TRUE,
           collapsible = TRUE,
           plotlyOutput(ns("SankeyKilos"), height = "300px")
@@ -52,7 +52,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Distribución por Sucursal y Estado (Anticipos)",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("SankeyAnticipos"), height = "300px")
@@ -64,7 +64,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Resumen de Cosechas",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           tableOutput(ns("ResumenCosechas"))
@@ -80,7 +80,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Cosechas – Kilos",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("CosechasKilos"), height = "300px")
@@ -92,7 +92,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Cosechas – Anticipos",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("CosechasAnticipos"), height = "300px")
@@ -108,7 +108,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Alturas de Mora por Oferta",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("BarrasAlturas"), height = "300px")
@@ -124,7 +124,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Alturas de Mora por Cosecha – Kilos",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("BarrasAlturasVintKls"), height = "300px")
@@ -136,7 +136,7 @@ mod_ofertas_ui <- function(id) {
         bs4Card(
           title       = "Alturas de Mora por Cosecha – Anticipos",
           width       = 12,
-          status      = "secondary",
+          status      = "white",
           solidHeader = FALSE,
           collapsible = TRUE,
           plotlyOutput(ns("BarrasAlturasVintAnt"), height = "300px")

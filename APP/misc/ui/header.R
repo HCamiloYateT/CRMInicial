@@ -1,27 +1,24 @@
-header <- bs4DashNavbar(status = "white", border = FALSE, sidebarIcon = icon("bars"),
-                        title = dashboardBrand(title = tit_app,
-                                               href = "https://analitica.racafe.com/PortalAnalitica/",
-                                               image = "https://raw.githubusercontent.com/HCamiloYateT/Compartido/refs/heads/main/img/logo2.png"),
-                        controlbarIcon = icon("gears"),
-                        leftUi = tagList(
-                          tags$li(class = "dropdown",
-                                  style = "display:flex;align-items:center; gap:8px;padding:8px 12px;cursor:default;",
-                                  tags$span(uiOutput("user")),
-                                  racafeShiny::Boton("BTN_Actualizar", label = NULL, icono = "sync",
-                                                     size = "xxs", label_posicion = "below",
-                                                     titulo = "Actualizar")
-                                  )
-                          ),
-                        rightUi = tagList(
-                          tags$li(class = "dropdown",
-                                  tags$a(style = paste("display:flex;align-items:center;", "gap:14px;padding:8px 12px;cursor:default;"),
-                                         tags$span(style = "font-size:0.79rem;color:#999;",
-                                                   icon("circle", style = "color:green;font-size:0.64rem;"),
-                                                   " Datos simulados"),
-                                         tags$span(style = "font-size:0.79rem;color:#999;",
-                                                   icon("calendar-alt"), format(Sys.Date(), " %d %b %Y")
-                                                   )
-                                         )
-                                  )
-                          )
-                        )
+# Header principal ----
+header <- bs4DashNavbar(
+  status         = "white",
+  border         = FALSE,
+  sidebarIcon    = icon("bars"),
+  controlbarIcon = icon("gears"),
+  title = dashboardBrand(
+    title = tit_app,
+    href  = "https://analitica.racafe.com/PortalAnalitica/",
+    image = "https://raw.githubusercontent.com/HCamiloYateT/Compartido/refs/heads/main/img/logo2.png"
+  ),
+  leftUi = tagList(
+    tags$li(
+      class = "dropdown",
+      style = "display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:default;",
+      ## Nombre del usuario autenticado
+      tags$span(uiOutput("user")),
+      ## Separador visual
+      tags$span(style = "color:#ddd;font-size:0.85rem;", "|"),
+      ## Sucursal activa derivada del grupo del usuario
+      uiOutput("sucursal_label")
+    )
+  )
+)

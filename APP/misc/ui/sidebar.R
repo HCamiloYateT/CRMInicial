@@ -1,23 +1,6 @@
 # Sidebar principal ----
 # tabName de cada subItem debe coincidir exactamente con los bs4TabItem de body.R
-sidebar <- bs4DashSidebar(
-  status        = "danger",
-  expandOnHover = FALSE,
-  
-  ## Selector de cliente — choices enviados desde server con server=TRUE ----
-  tags$div(
-    style = "padding: 8px 12px 4px;",
-    selectizeInput(
-      inputId = "ClienteInicial",
-      label   = tags$small("Cliente"),
-      choices = NULL,
-      width   = "100%"
-    )
-  ),
-  
-  ## Alerta de cliente bloqueado ----
-  uiOutput("ui_bloqueado"),
-  
+sidebar <- bs4DashSidebar(status        = "danger", expandOnHover = FALSE,
   ## Menú de navegación ----
   bs4SidebarMenu(
     id = "menu_principal",

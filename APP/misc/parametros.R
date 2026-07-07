@@ -39,6 +39,20 @@ colores_estado <- c(
 # Poblar con los IDs reales según la fuente de datos de riesgo
 bloqueados <- c()
 
+## Catálogo de sucursales ----
+# Referencia maestra: SucCod → Sucursal (normalizada sin tildes vía LimpiarNombres)
+# Usado para resolver el grupo de Posit Connect al nombre de sucursal visible en el header
+sucs <- data.frame(
+  SucCod   = c(12,            15,       20,        26,        30,
+               32,          35,        50,           55),
+  Sucursal = c("Trilladora 12", "Bachué", "Medellín", "Popayán", "Armenia",
+               "Arenales",   "Pereira", "Bucaramanga", "Huila")
+) %>%
+  dplyr::mutate(
+    across(where(is.character), LimpiarNombres),
+    Sucursal = factor(Sucursal, levels = Sucursal, ordered = TRUE)
+  )
+
 ## Tabla de usuarios, grupos y accesos por trilladora ----
 # Trilladora: "TODAS" o el nombre exacto (post-LimpiarNombres) de la sucursal asignada
 tabla_usuarios <- dplyr::tibble(

@@ -10,7 +10,7 @@ options(OutDec = ".", scipen = 999, lubridate.week.start = 1,
 library(racafeCore)
 library(racafeBD)
 Loadpkg(c("tidyverse", "readxl", "openxlsx2", "tictoc", "here",
-          "connectapi", "rsconnect", "rfm"))
+          "connectapi", "rsconnect", "rfm", "scales"))
 
 # 2. Diccionarios, Catalogos y Niveles ----
 # 3. Funciones ----
@@ -300,20 +300,20 @@ ResultadosRFM <- rfm_result$rfm %>%
 gdata::keep(Ofertas, Facturas, Entradas, Liquidacion, ResultadosRFM, sure = TRUE)
 save.image("APP/data/data.RData")
 
-# # 7. Publicacion en Posit Connect ----
+# 7. Publicacion en Posit Connect ----
 
-# client <- connect(server  = "http://172.16.19.39:3939",
-#                   api_key = "HayDGkCmpQqmZB1rSkj2300JMDNpA2el")
-# 
-# if (!file.exists("APP/manifest.json")) {
-#   rsconnect::writeManifest("/home/compartido/APP/5_Trilladoras/CRMClienteInicial/APP/")
-# }
-# 
-# bundle  <- bundle_dir("/home/compartido/APP/5_Trilladoras/CRMClienteInicial/APP/")
-# content <- client %>%
-#   deploy(bundle) %>%
-#   poll_task()
-# 
-# rm(bundle, client, content)
-# gc()
-# tictoc::toc()
+client <- connect(server  = "http://172.16.19.39:3939",
+                  api_key = "HayDGkCmpQqmZB1rSkj2300JMDNpA2el")
+
+if (!file.exists("APP/manifest.json")) {
+  rsconnect::writeManifest("/home/compartido/APP/5_Trilladoras/CRMClienteInicial/APP/")
+}
+
+bundle  <- bundle_dir("/home/compartido/APP/5_Trilladoras/CRMClienteInicial/APP/")
+content <- client %>%
+  deploy(bundle, guid= "839e026a-8525-4526-a805-6b1622b24c24") %>%
+  poll_task()
+
+rm(bundle, client, content)
+gc()
+tictoc::toc()
